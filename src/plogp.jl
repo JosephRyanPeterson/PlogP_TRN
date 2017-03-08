@@ -31,17 +31,56 @@ using DataTables
 # Export module functions
 export plogp
 
-# Local functions
-function plogp(dt::DataTable)
-	# Extract data
-	geneCount   = size(dt)[1]
-	sampleCount = size(dt)[2]
+"""
+	plogp(dt, cv_threshold)
 
-	genes   = dt[:,1]
-	rawData = dt[:,2:sampleCount]
+	dt - DataFrame containing the expression value with columns as experiments and rows as genes. The first column should contain the gene identifiers.
+	cv_threshold - Throw away genes with coefficients of vartion below this value (Default: 0).
+
+Computes the gene interaction matrix (inverse of covariance matrix) using the principle of entropy maximization[^1]:
+``\rho(\vec{x})=Ae^{\frac{\vec{x}M\vec{x}}{2}}``
+
+[^1]T.R. Lezon, J.R. Banavar, M. Cieplak, A. Maritan, N.V. Fedoroff (2006) Using the principle of entropy maximization to infer genetic interaction networks from gene expression patterns, PNAS, 103(50):19033-19038.
+"""
+function plogp(dt::DataTable, cv_threshold::Float64=0.0)
+	# Extract data
+	genesNames = dt[:,1]
+	rawData    = convert(Array,dt[:,2:end])
+
+	geneCount   = size(rawData)[1]
+	sampleCount = size(rawData)[2]
 
 	# Normalize rows to unit variance
+	means = mean(rawData,2)
+	stds  = std(rawData,2)
+	transformedData = (rawData.-means)./stds
+
+	# Prefilter data if necessary
+	cvs = stds./means
+	filteredData = transformedData[(cvs.>cv_threshold)[:,1],1]
+	sigGeneCount = size(filteredData)[1]
 	
+	# Compute covariance matrix
+	covariance = filteredData*filteredData'
+
+	# Compute spectral decomposition
+	eigenValues, eigenVectors = eig(covariance)
+
+	# Get positive guaranteed eigenvalues/eigenvectors
+	posEV   = eigenValues[end-(sampleCount-2):end]
+	posEVec = eigenVectors[end-(sampleCount-2):end]
+
+	# Compute partial inverse
+	interaction = zeros(sigGeneCount, sigGeneCount)
+	for i in 1:sigGeneCount
+		for j in 1:sigGeneCount
+			for k in 1:sampleCount
+				interaction[i,j] += 1.0/posEV[k] * posEV[k,i]*posEV[k,j]
+			end
+		end
+	end
+
+	return geneNames[(cvs.>cv_threshold)[:,1]], interaction
 end
 
 

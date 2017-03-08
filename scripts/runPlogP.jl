@@ -68,7 +68,7 @@ function main()
 
 	# Run algorithm
 	println("Computing couplings...")
-	
+	couplingStrength = plogp(convert(Array,expressionData))
 
 	# Cull network
 	println("Thresholding network...")
