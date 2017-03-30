@@ -39,8 +39,12 @@ function parse_cmd_line()
 			help = "Name of directory into which results are stored."
 			arg_type = String
 			default = "out"
+		"--threshold", "-t"
+			help = "A threshold on the minimum coefficient of variation for genes to be considered by the algorithm (pre-algorithm filtering)."
+			arg_type = Float64
+			default = 0.0
 		"--significant", "-s"
-			help = "Significant interactions are those 's' standard deviations away from mean."
+			help = "Significant interactions are those 's' standard deviations away from mean (post-algorithm filtering)."
 			arg_type = Float64
 			default = 2.0
 		"--plot", "-p"
@@ -68,10 +72,10 @@ function main()
 
 	# Run algorithm
 	println("Computing couplings...")
-	couplingStrength = plogp(convert(Array,expressionData))
+	genes, couplingStrength = plogp(expressionData, args["threshold"])
 
 	# Cull network
-	println("Thresholding network...")
+	println("Thresholding significant interactions...")
 	
 
 	# Plot Data (if requested)
